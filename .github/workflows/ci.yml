@@ -2,9 +2,9 @@ name: CI Quality Pipeline
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   sonarcloud:
@@ -40,6 +40,6 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=VOTRE_PROJECT_KEY
-            -Dsonar.organization=VOTRE_ORGANISATION -Dsonar.sources=src
+            -Dsonar.projectKey=smart-c
+            -Dsonar.organization=SmartCRM -Dsonar.sources=src
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
