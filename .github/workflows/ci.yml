@@ -4,10 +4,16 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
+
 jobs:
   sonarcloud:
     name: Build, Test and Analyze
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./backend # 👈 Pointe vers le backend
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,6 +25,7 @@ jobs:
         with:
           node-version: 18
           cache: "npm"
+          cache-dependency-path: backend/package-lock.json # 👈 Backend
 
       - name: Install dependencies
         run: npm ci
@@ -36,6 +43,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
+          projectBaseDir: backend # 👈 Backend
           args: >
             -Dsonar.projectKey=smart-c
             -Dsonar.organization=SmartCRM
@@ -43,15 +51,13 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
       - name: Check Quality Gate Conditions Manually
+        working-directory: .
         run: |
           echo "Récupération des métriques SonarCloud..."
 
           METRICS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
             "https://sonarcloud.io/api/measures/component?component=smart-c&metricKeys=coverage,complexity,bugs")
 
-          echo "Réponse API : $METRICS"
-
-          # Extraire les valeurs
           COVERAGE=$(echo $METRICS | python3 -c "
           import sys, json
           data = json.load(sys.stdin)
@@ -83,7 +89,6 @@ jobs:
           echo "📊 Complexité   : $COMPLEXITY  (requis ≤ 10)"
           echo "📊 Bugs         : $BUGS        (requis = 0)"
 
-          # Vérification des conditions
           FAIL=0
 
           if (( $(echo "$COVERAGE < 70" | bc -l) )); then
@@ -107,12 +112,9 @@ jobs:
             echo "✅ OK  : Bugs = 0"
           fi
 
-          # Résultat final
           if [ $FAIL -eq 1 ]; then
-            echo ""
             echo "🚨 QUALITY GATE FAILED - Pipeline bloqué"
             exit 1
           else
-            echo ""
-            echo "🎉 QUALITY GATE PASSED - Toutes les conditions sont respectées"
+            echo "🎉 QUALITY GATE PASSED"
           fi
