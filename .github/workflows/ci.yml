@@ -1,45 +1,118 @@
 name: CI Quality Pipeline
-
 on:
   push:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-
 jobs:
   sonarcloud:
     name: Build, Test and Analyze
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Important : SonarCloud a besoin de l'historique complet pour l'analyse du "Clean Code"
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: "npm" # Accélère les builds suivants
+          cache: "npm"
 
       - name: Install dependencies
-        run: npm ci # Utiliser 'npm ci' est plus fiable en environnement CI que 'npm install'
+        run: npm ci
 
       - name: Run Linter (ESLint)
         run: npm run lint
         continue-on-error: false
 
       - name: Run Tests with Coverage
-        run: npm test -- --coverage # SonarCloud a besoin du rapport de couverture pour être vraiment utile
+        run: npm test -- --coverage
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Nécessaire pour commenter les PR
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=smart-c
-            -Dsonar.organization=SmartCRM -Dsonar.sources=src
+            -Dsonar.organization=SmartCRM
+            -Dsonar.sources=src
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+
+      - name: Check Quality Gate Conditions Manually
+        run: |
+          echo "Récupération des métriques SonarCloud..."
+
+          METRICS=$(curl -s -u "${{ secrets.SONAR_TOKEN }}:" \
+            "https://sonarcloud.io/api/measures/component?component=smart-c&metricKeys=coverage,complexity,bugs")
+
+          echo "Réponse API : $METRICS"
+
+          # Extraire les valeurs
+          COVERAGE=$(echo $METRICS | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          measures = data['component']['measures']
+          for m in measures:
+              if m['metric'] == 'coverage':
+                  print(m['value'])
+          ")
+
+          COMPLEXITY=$(echo $METRICS | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          measures = data['component']['measures']
+          for m in measures:
+              if m['metric'] == 'complexity':
+                  print(m['value'])
+          ")
+
+          BUGS=$(echo $METRICS | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          measures = data['component']['measures']
+          for m in measures:
+              if m['metric'] == 'bugs':
+                  print(m['value'])
+          ")
+
+          echo "📊 Coverage     : $COVERAGE%  (requis ≥ 70%)"
+          echo "📊 Complexité   : $COMPLEXITY  (requis ≤ 10)"
+          echo "📊 Bugs         : $BUGS        (requis = 0)"
+
+          # Vérification des conditions
+          FAIL=0
+
+          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+            echo "❌ FAIL : Coverage $COVERAGE% < 70%"
+            FAIL=1
+          else
+            echo "✅ OK  : Coverage $COVERAGE%"
+          fi
+
+          if (( $(echo "$COMPLEXITY > 10" | bc -l) )); then
+            echo "❌ FAIL : Complexité $COMPLEXITY > 10"
+            FAIL=1
+          else
+            echo "✅ OK  : Complexité $COMPLEXITY"
+          fi
+
+          if (( $(echo "$BUGS > 0" | bc -l) )); then
+            echo "❌ FAIL : Bugs détectés = $BUGS"
+            FAIL=1
+          else
+            echo "✅ OK  : Bugs = 0"
+          fi
+
+          # Résultat final
+          if [ $FAIL -eq 1 ]; then
+            echo ""
+            echo "🚨 QUALITY GATE FAILED - Pipeline bloqué"
+            exit 1
+          else
+            echo ""
+            echo "🎉 QUALITY GATE PASSED - Toutes les conditions sont respectées"
+          fi
