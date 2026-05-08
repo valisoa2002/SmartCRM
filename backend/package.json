@@ -4,9 +4,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
     "start": "nodemon app.js",
     "lint": "eslint ."
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/**/*.test.js"
+    ],
+    "coverageReporters": [
+      "lcov",
+      "text"
+    ],
+    "coverageDirectory": "coverage"
   },
   "repository": {
     "type": "git"
