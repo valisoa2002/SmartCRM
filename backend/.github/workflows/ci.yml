@@ -48,7 +48,9 @@ jobs:
             -Dsonar.projectKey=smart-c
             -Dsonar.organization=SmartCRM
             -Dsonar.sources=.
-            -Dsonar.exclusions=**/node_modules/**,**/__tests__/**
+            -Dsonar.tests=__tests__
+            -Dsonar.test.inclusions=**/*.test.js
+            -Dsonar.exclusions=**/node_modules/**
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
       - name: Check Quality Gate Conditions Manually
