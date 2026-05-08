@@ -3,15 +3,15 @@ import globals from "globals";
 import { defineConfig } from "eslint/config";
 
 export default defineConfig([
+  js.configs.recommended, // Utilisation directe de la config recommandée
   {
     files: ["**/*.{js,mjs,cjs}"],
-    // rules: {
-    //   ...js.configs.recommended.rules,
-    //   "complexity": ["error", 5] // Ton seuil de complexité cyclomatique
-    // },
-    plugins: { js },
-    extends: ["js/recommended"],
-    languageOptions: { globals: globals.node },
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest, // Ajoute les globales de Jest (describe, test, expect, etc.)
+      },
+    },
   },
   { files: ["**/*.js"], languageOptions: { sourceType: "commonjs" } },
 ]);
